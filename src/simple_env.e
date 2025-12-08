@@ -1,7 +1,7 @@
 note
 	description: "[
 		SCOOP-compatible environment variable access.
-		Uses direct Win32 API calls via C wrapper.
+		Uses direct Win32 API calls with inline C.
 	]"
 	author: "Larry Rix"
 	date: "$Date$"
@@ -125,52 +125,87 @@ feature {NONE} -- Implementation
 			Result := l_c_string.string.to_string_32
 		end
 
-feature {NONE} -- C externals
+feature {NONE} -- C externals (inline)
 
 	c_se_get_env (a_name: POINTER): POINTER
-			-- Get environment variable.
+			-- Get environment variable value. Caller must free result.
 		external
-			"C inline use %"simple_env.h%""
+			"C inline use <windows.h>, <stdlib.h>"
 		alias
-			"return se_get_env((const char*)$a_name);"
+			"[
+				DWORD size;
+				char* result;
+				if (!$a_name) return NULL;
+				size = GetEnvironmentVariableA((const char*)$a_name, NULL, 0);
+				if (size == 0) return NULL;
+				result = (char*)malloc(size);
+				if (!result) return NULL;
+				if (GetEnvironmentVariableA((const char*)$a_name, result, size) == 0) {
+					free(result);
+					return NULL;
+				}
+				return result;
+			]"
 		end
 
 	c_se_set_env (a_name, a_value: POINTER): INTEGER
-			-- Set environment variable.
+			-- Set environment variable. Returns 1 on success, 0 on failure.
 		external
-			"C inline use %"simple_env.h%""
+			"C inline use <windows.h>"
 		alias
-			"return se_set_env((const char*)$a_name, (const char*)$a_value);"
+			"[
+				if (!$a_name) return 0;
+				return SetEnvironmentVariableA((const char*)$a_name, (const char*)$a_value) ? 1 : 0;
+			]"
 		end
 
 	c_se_unset_env (a_name: POINTER): INTEGER
-			-- Unset environment variable.
+			-- Unset environment variable. Returns 1 on success, 0 on failure.
 		external
-			"C inline use %"simple_env.h%""
+			"C inline use <windows.h>"
 		alias
-			"return se_unset_env((const char*)$a_name);"
+			"[
+				if (!$a_name) return 0;
+				return SetEnvironmentVariableA((const char*)$a_name, NULL) ? 1 : 0;
+			]"
 		end
 
 	c_se_expand_env (a_input: POINTER): POINTER
-			-- Expand environment strings.
+			-- Expand environment strings. Caller must free result.
 		external
-			"C inline use %"simple_env.h%""
+			"C inline use <windows.h>, <stdlib.h>"
 		alias
-			"return se_expand_env((const char*)$a_input);"
+			"[
+				DWORD size;
+				char* result;
+				if (!$a_input) return NULL;
+				size = ExpandEnvironmentStringsA((const char*)$a_input, NULL, 0);
+				if (size == 0) return NULL;
+				result = (char*)malloc(size);
+				if (!result) return NULL;
+				if (ExpandEnvironmentStringsA((const char*)$a_input, result, size) == 0) {
+					free(result);
+					return NULL;
+				}
+				return result;
+			]"
 		end
 
 	c_se_env_exists (a_name: POINTER): INTEGER
-			-- Check if variable exists.
+			-- Check if variable exists. Returns 1 if exists, 0 otherwise.
 		external
-			"C inline use %"simple_env.h%""
+			"C inline use <windows.h>"
 		alias
-			"return se_env_exists((const char*)$a_name);"
+			"[
+				if (!$a_name) return 0;
+				return GetEnvironmentVariableA((const char*)$a_name, NULL, 0) > 0 ? 1 : 0;
+			]"
 		end
 
 	c_free (a_ptr: POINTER)
 			-- Free allocated memory.
 		external
-			"C inline"
+			"C inline use <stdlib.h>"
 		alias
 			"free($a_ptr);"
 		end
