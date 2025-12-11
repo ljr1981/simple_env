@@ -3,148 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIMPLE_ENV - Documentation</title>
+    <title>simple_env - Documentation</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
 </head>
 <body>
     <header>
-        <h1>SIMPLE_ENV</h1>
-        <p>SCOOP-compatible environment variable access via Win32 API</p>
+        <div class="logo-container">
+            <img src="images/logo.png" alt="simple_* logo" class="logo">
+        </div>
+        <h1>simple_env</h1>
+        <p class="tagline">SCOOP-compatible environment variable access via Win32 API</p>
     </header>
 
     <nav>
-        <a href="#overview">Overview</a>
-        <a href="#quick-start">Quick Start</a>
-        <a href="#api">API Reference</a>
-        <a href="#examples">Examples</a>
-        <a href="https://github.com/simple-eiffel/simple_env">GitHub</a>
+        <ul>
+            <li><a href="index.html" class="active">Overview</a></li>
+            <li><a href="user-guide.html">User Guide</a></li>
+            <li><a href="api-reference.html">API Reference</a></li>
+            <li><a href="architecture.html">Architecture</a></li>
+            <li><a href="cookbook.html">Cookbook</a></li>
+            <li><a href="https://github.com/simple-eiffel/simple_env">GitHub</a></li>
+        </ul>
     </nav>
 
     <main>
         <section id="overview">
             <h2>Overview</h2>
-            <p>SIMPLE_ENV provides SCOOP-compatible environment variable access for Eiffel applications. It uses direct Win32 API calls with inline C for reliable environment variable manipulation.</p>
+            <p>simple_env provides SCOOP-compatible environment variable access for Eiffel applications. Unlike the standard EXECUTION_ENVIRONMENT, it uses direct Win32 API calls with inline C for reliable, thread-safe environment manipulation.</p>
 
-            <h3>Key Features</h3>
-            <ul>
-                <li>Get environment variable values</li>
-                <li>Set and unset environment variables</li>
-                <li>Check if variables exist</li>
-                <li>Expand environment strings (%VAR% syntax)</li>
-                <li>Array-style access with [] operator</li>
-                <li>SCOOP-compatible for concurrent programming</li>
-            </ul>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>Get & Set</h3>
+                    <p>Read, write, and delete environment variables with simple API.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>String Expansion</h3>
+                    <p>Expand %VAR% references in paths and strings.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Enumeration</h3>
+                    <p>List all variables or filter by prefix.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>SCOOP Safe</h3>
+                    <p>Designed for concurrent programming with no shared state.</p>
+                </div>
+            </div>
         </section>
 
         <section id="quick-start">
             <h2>Quick Start</h2>
-            <h3>Installation</h3>
-            <pre><code>&lt;library name="simple_env" location="$SIMPLE_ENV/simple_env.ecf"/&gt;</code></pre>
 
-            <h3>Environment Variable</h3>
-            <pre><code>SIMPLE_ENV=/path/to/simple_env</code></pre>
+            <h3>Installation</h3>
+            <ol>
+                <li>Set the environment variable:
+<pre><code>export SIMPLE_ENV=/path/to/simple_env</code></pre>
+                </li>
+                <li>Add to your ECF file:
+<pre><code>&lt;library name="simple_env" location="$SIMPLE_ENV/simple_env.ecf"/&gt;</code></pre>
+                </li>
+            </ol>
 
             <h3>Basic Usage</h3>
-            <pre><code>local
-    env: SIMPLE_ENV
-do
-    create env
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
 
-    -- Get a variable
-    if attached env.get ("PATH") as path then
+    <span class="comment">-- Get a variable</span>
+    <span class="keyword">if</span> <span class="keyword">attached</span> env.get (<span class="string">"PATH"</span>) <span class="keyword">as</span> path <span class="keyword">then</span>
         print (path)
-    end
+    <span class="keyword">end</span>
 
-    -- Set a variable
-    env.set ("MY_VAR", "my_value")
+    <span class="comment">-- Set a variable</span>
+    env.set (<span class="string">"MY_VAR"</span>, <span class="string">"my_value"</span>)
 
-    -- Expand strings
-    print (env.expand ("%USERPROFILE%\Documents"))
-end</code></pre>
+    <span class="comment">-- Expand paths</span>
+    print (env.expand (<span class="string">"%USERPROFILE%\Documents"</span>))
+<span class="keyword">end</span></code></pre>
         </section>
 
-        <section id="api">
-            <h2>API Reference</h2>
+        <section id="features">
+            <h2>Key Features</h2>
 
-            <h3>SIMPLE_ENV</h3>
-            <table>
+            <h3>Access</h3>
+            <ul>
+                <li><code>get (name)</code> - Get variable value (Void if not set)</li>
+                <li><code>item [name]</code> - Array-style access (alias for get)</li>
+                <li><code>has (name)</code> - Check if variable exists</li>
+            </ul>
+
+            <h3>Modification</h3>
+            <ul>
+                <li><code>set (name, value)</code> - Set environment variable</li>
+                <li><code>put (value, name)</code> - Set (HASH_TABLE convention)</li>
+                <li><code>unset (name)</code> - Remove environment variable</li>
+            </ul>
+
+            <h3>Expansion</h3>
+            <ul>
+                <li><code>expand (string)</code> - Expand %VAR% references</li>
+            </ul>
+
+            <h3>Enumeration</h3>
+            <ul>
+                <li><code>all_names</code> - All environment variable names</li>
+                <li><code>names_with_prefix (prefix)</code> - Variables matching prefix</li>
+            </ul>
+
+            <h3>Status</h3>
+            <ul>
+                <li><code>last_operation_succeeded</code> - Did last set/unset work?</li>
+            </ul>
+        </section>
+
+        <section id="why">
+            <h2>Why simple_env?</h2>
+
+            <h3>vs. EXECUTION_ENVIRONMENT</h3>
+            <table class="api-table">
                 <tr>
                     <th>Feature</th>
-                    <th>Description</th>
+                    <th>EXECUTION_ENVIRONMENT</th>
+                    <th>SIMPLE_ENV</th>
                 </tr>
                 <tr>
-                    <td><code>get (name)</code></td>
-                    <td>Get environment variable value (Void if not set)</td>
+                    <td>SCOOP compatible</td>
+                    <td>No (internal caching)</td>
+                    <td>Yes (no shared state)</td>
                 </tr>
                 <tr>
-                    <td><code>item [name]</code></td>
-                    <td>Array-style access (alias for get)</td>
+                    <td>String expansion</td>
+                    <td>No</td>
+                    <td>Yes (%VAR% support)</td>
                 </tr>
                 <tr>
-                    <td><code>has (name)</code></td>
-                    <td>Check if variable exists</td>
+                    <td>Enumerate variables</td>
+                    <td>No</td>
+                    <td>Yes (all_names, prefix filter)</td>
                 </tr>
                 <tr>
-                    <td><code>set (name, value)</code></td>
-                    <td>Set environment variable</td>
+                    <td>Operation status</td>
+                    <td>No</td>
+                    <td>Yes (last_operation_succeeded)</td>
                 </tr>
                 <tr>
-                    <td><code>put (value, name)</code></td>
-                    <td>Set variable (HASH_TABLE convention)</td>
-                </tr>
-                <tr>
-                    <td><code>unset (name)</code></td>
-                    <td>Remove environment variable</td>
-                </tr>
-                <tr>
-                    <td><code>expand (string)</code></td>
-                    <td>Expand %VAR% references in string</td>
-                </tr>
-                <tr>
-                    <td><code>last_operation_succeeded</code></td>
-                    <td>Status of last set/unset operation</td>
+                    <td>Array syntax</td>
+                    <td>Yes</td>
+                    <td>Yes</td>
                 </tr>
             </table>
         </section>
 
+        <section id="documentation">
+            <h2>Documentation</h2>
+            <ul>
+                <li><a href="user-guide.html">User Guide</a> - Complete tutorial with examples</li>
+                <li><a href="api-reference.html">API Reference</a> - Full API documentation</li>
+                <li><a href="architecture.html">Architecture</a> - Internal design and Win32 integration</li>
+                <li><a href="cookbook.html">Cookbook</a> - Ready-to-use recipes</li>
+            </ul>
+        </section>
+
         <section id="examples">
-            <h2>Examples</h2>
+            <h2>More Examples</h2>
 
             <h3>Working with Paths</h3>
-            <pre><code>local
-    env: SIMPLE_ENV
-    user_docs: STRING_32
-do
-    create env
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+    config_path: STRING_32
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
 
-    -- Expand user profile path
-    user_docs := env.expand ("%USERPROFILE%\Documents")
+    <span class="comment">-- Expand Windows path variables</span>
+    config_path := env.expand (<span class="string">"%APPDATA%\MyApp\config.json"</span>)
+    <span class="comment">-- Result: "C:\Users\John\AppData\Roaming\MyApp\config.json"</span>
+<span class="keyword">end</span></code></pre>
 
-    -- Get system path
-    if attached env ["PATH"] as system_path then
-        print ("System PATH: " + system_path + "%N")
-    end
-end</code></pre>
+            <h3>Listing SIMPLE_* Libraries</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
 
-            <h3>Setting Configuration</h3>
-            <pre><code>local
-    env: SIMPLE_ENV
-do
-    create env
-
-    env.set ("APP_CONFIG", "/etc/myapp/config.json")
-    env.set ("APP_DEBUG", "true")
-
-    if env.last_operation_succeeded then
-        print ("Configuration set successfully%N")
-    end
-end</code></pre>
+    <span class="comment">-- Find all configured simple_* libraries</span>
+    <span class="keyword">across</span> env.names_with_prefix (<span class="string">"SIMPLE_"</span>) <span class="keyword">as</span> lib <span class="keyword">loop</span>
+        <span class="keyword">if</span> <span class="keyword">attached</span> env.get (lib) <span class="keyword">as</span> path <span class="keyword">then</span>
+            print (lib + <span class="string">" = "</span> + path + <span class="string">"%N"</span>)
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
         </section>
     </main>
 
     <footer>
-        <p>&copy; 2024-2025 Larry Rix. MIT License.</p>
-        <p><a href="https://github.com/simple-eiffel/simple_env">GitHub</a></p>
+        <p>Part of the <a href="https://github.com/simple-eiffel">simple_*</a> ecosystem of focused, single-purpose Eiffel libraries.</p>
+        <p>&copy; 2025 Larry Rix. MIT License.</p>
     </footer>
 </body>
 </html>

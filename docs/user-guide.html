@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Guide - simple_env</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="images/logo.png" alt="simple_* logo" class="logo">
+        </div>
+        <h1>simple_env</h1>
+        <p class="tagline">User Guide</p>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="user-guide.html" class="active">User Guide</a></li>
+            <li><a href="api-reference.html">API Reference</a></li>
+            <li><a href="architecture.html">Architecture</a></li>
+            <li><a href="cookbook.html">Cookbook</a></li>
+            <li><a href="https://github.com/simple-eiffel/simple_env">GitHub</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <section id="getting-started">
+            <h2>Getting Started</h2>
+
+            <h3>Installation</h3>
+            <ol>
+                <li>Set the environment variable:
+<pre><code>export SIMPLE_ENV=/path/to/simple_env</code></pre>
+                </li>
+                <li>Add to your ECF file:
+<pre><code>&lt;library name="simple_env" location="$SIMPLE_ENV/simple_env.ecf"/&gt;</code></pre>
+                </li>
+            </ol>
+
+            <h3>Basic Usage</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Get a variable</span>
+    <span class="keyword">if</span> <span class="keyword">attached</span> env.get (<span class="string">"PATH"</span>) <span class="keyword">as</span> path <span class="keyword">then</span>
+        print (<span class="string">"PATH = "</span> + path)
+    <span class="keyword">end</span>
+
+    <span class="comment">-- Set a variable</span>
+    env.set (<span class="string">"MY_VAR"</span>, <span class="string">"my_value"</span>)
+
+    <span class="comment">-- Check existence</span>
+    <span class="keyword">if</span> env.has (<span class="string">"MY_VAR"</span>) <span class="keyword">then</span>
+        print (<span class="string">"Variable exists!"</span>)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="getting-variables">
+            <h2>Getting Environment Variables</h2>
+
+            <h3>Using get</h3>
+            <p>The <code>get</code> feature returns a detachable STRING_32. If the variable doesn't exist, it returns Void.</p>
+
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Using attached pattern (recommended)</span>
+    <span class="keyword">if</span> <span class="keyword">attached</span> env.get (<span class="string">"USERPROFILE"</span>) <span class="keyword">as</span> profile <span class="keyword">then</span>
+        print (<span class="string">"User profile: "</span> + profile)
+    <span class="keyword">else</span>
+        print (<span class="string">"USERPROFILE not set"</span>)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+
+            <h3>Array-Style Access</h3>
+            <p>Use bracket notation for cleaner code:</p>
+
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Array-style access</span>
+    <span class="keyword">if</span> <span class="keyword">attached</span> env [<span class="string">"PATH"</span>] <span class="keyword">as</span> path <span class="keyword">then</span>
+        print (path)
+    <span class="keyword">end</span>
+
+    <span class="comment">-- Multiple variables</span>
+    <span class="keyword">if</span> <span class="keyword">attached</span> env [<span class="string">"TEMP"</span>] <span class="keyword">as</span> temp <span class="keyword">then</span>
+        print (<span class="string">"Temp dir: "</span> + temp)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+
+            <h3>Checking Existence</h3>
+            <p>Use <code>has</code> to check if a variable exists without getting its value:</p>
+
+<pre><code><span class="keyword">if</span> env.has (<span class="string">"DEBUG"</span>) <span class="keyword">then</span>
+    enable_debug_mode
+<span class="keyword">end</span>
+
+<span class="comment">-- Different from checking empty string!</span>
+<span class="comment">-- A variable can exist with an empty value</span></code></pre>
+        </section>
+
+        <section id="setting-variables">
+            <h2>Setting Environment Variables</h2>
+
+            <h3>Basic Setting</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Set a variable</span>
+    env.set (<span class="string">"APP_MODE"</span>, <span class="string">"production"</span>)
+
+    <span class="comment">-- Check if it succeeded</span>
+    <span class="keyword">if</span> env.last_operation_succeeded <span class="keyword">then</span>
+        print (<span class="string">"Variable set successfully"</span>)
+    <span class="keyword">else</span>
+        print (<span class="string">"Failed to set variable"</span>)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+
+            <h3>Alternative Syntax (HASH_TABLE Convention)</h3>
+            <p>The <code>put</code> feature follows the HASH_TABLE convention with swapped arguments:</p>
+
+<pre><code><span class="comment">-- set (name, value) - natural order</span>
+env.set (<span class="string">"NAME"</span>, <span class="string">"value"</span>)
+
+<span class="comment">-- put (value, name) - HASH_TABLE convention</span>
+env.put (<span class="string">"value"</span>, <span class="string">"NAME"</span>)</code></pre>
+
+            <h3>Unsetting Variables</h3>
+<pre><code><span class="comment">-- Remove a variable</span>
+env.unset (<span class="string">"TEMP_VAR"</span>)
+
+<span class="keyword">if</span> env.last_operation_succeeded <span class="keyword">then</span>
+    print (<span class="string">"Variable removed"</span>)
+<span class="keyword">end</span>
+
+<span class="comment">-- Verify it's gone</span>
+<span class="keyword">if</span> <span class="keyword">not</span> env.has (<span class="string">"TEMP_VAR"</span>) <span class="keyword">then</span>
+    print (<span class="string">"Confirmed: variable no longer exists"</span>)
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="expansion">
+            <h2>String Expansion</h2>
+
+            <h3>Expanding %VAR% References</h3>
+            <p>The <code>expand</code> feature resolves Windows-style %VAR% references:</p>
+
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+    expanded: STRING_32
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Expand single variable</span>
+    expanded := env.expand (<span class="string">"%USERPROFILE%"</span>)
+    <span class="comment">-- Result: "C:\Users\John"</span>
+
+    <span class="comment">-- Expand within path</span>
+    expanded := env.expand (<span class="string">"%USERPROFILE%\Documents"</span>)
+    <span class="comment">-- Result: "C:\Users\John\Documents"</span>
+
+    <span class="comment">-- Multiple variables</span>
+    expanded := env.expand (<span class="string">"%SYSTEMROOT%\System32\%USERNAME%"</span>)
+
+    <span class="comment">-- Unknown variables are left as-is</span>
+    expanded := env.expand (<span class="string">"%UNKNOWN%"</span>)
+    <span class="comment">-- Result: "%UNKNOWN%"</span>
+<span class="keyword">end</span></code></pre>
+
+            <h3>Building Dynamic Paths</h3>
+<pre><code><span class="keyword">local</span>
+    config_path: STRING_32
+<span class="keyword">do</span>
+    <span class="comment">-- Build configuration path</span>
+    config_path := env.expand (<span class="string">"%APPDATA%\MyApp\config.json"</span>)
+
+    <span class="comment">-- Build temp file path</span>
+    temp_path := env.expand (<span class="string">"%TEMP%\myapp_"</span> + timestamp + <span class="string">".tmp"</span>)
+
+    <span class="comment">-- Build log path with date</span>
+    log_path := env.expand (<span class="string">"%PROGRAMDATA%\MyApp\Logs\"</span>) + date_string + <span class="string">".log"</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="enumeration">
+            <h2>Enumerating Variables</h2>
+
+            <h3>Getting All Variable Names</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+    all_names: ARRAYED_LIST [STRING_32]
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Get all environment variable names</span>
+    all_names := env.all_names
+
+    print (<span class="string">"Total variables: "</span> + all_names.count.out + <span class="string">"%N"</span>)
+
+    <span class="comment">-- List them all</span>
+    <span class="keyword">across</span> all_names <span class="keyword">as</span> name <span class="keyword">loop</span>
+        print (name + <span class="string">"%N"</span>)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+
+            <h3>Filtering by Prefix</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+    app_vars: ARRAYED_LIST [STRING_32]
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Get all variables starting with "APP_"</span>
+    app_vars := env.names_with_prefix (<span class="string">"APP_"</span>)
+
+    <span class="keyword">across</span> app_vars <span class="keyword">as</span> name <span class="keyword">loop</span>
+        <span class="keyword">if</span> <span class="keyword">attached</span> env.get (name) <span class="keyword">as</span> value <span class="keyword">then</span>
+            print (name + <span class="string">" = "</span> + value + <span class="string">"%N"</span>)
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+
+    <span class="comment">-- Find all SIMPLE_* library paths</span>
+    <span class="keyword">across</span> env.names_with_prefix (<span class="string">"SIMPLE_"</span>) <span class="keyword">as</span> lib <span class="keyword">loop</span>
+        print (lib + <span class="string">"%N"</span>)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="error-handling">
+            <h2>Error Handling</h2>
+
+            <h3>Checking Operation Status</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Set a variable</span>
+    env.set (<span class="string">"CONFIG"</span>, <span class="string">"/path/to/config"</span>)
+
+    <span class="keyword">if</span> <span class="keyword">not</span> env.last_operation_succeeded <span class="keyword">then</span>
+        <span class="comment">-- Handle failure</span>
+        print (<span class="string">"Failed to set environment variable"</span>)
+        <span class="comment">-- Possible causes: insufficient permissions, system limit reached</span>
+    <span class="keyword">end</span>
+
+    <span class="comment">-- Unset a variable</span>
+    env.unset (<span class="string">"OLD_CONFIG"</span>)
+
+    <span class="keyword">if</span> <span class="keyword">not</span> env.last_operation_succeeded <span class="keyword">then</span>
+        <span class="comment">-- Variable may not have existed, or permission denied</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+
+            <h3>Safe Access Pattern</h3>
+<pre><code><span class="keyword">local</span>
+    database_url: STRING_32
+<span class="keyword">do</span>
+    <span class="comment">-- Get with default fallback</span>
+    <span class="keyword">if</span> <span class="keyword">attached</span> env.get (<span class="string">"DATABASE_URL"</span>) <span class="keyword">as</span> url <span class="keyword">then</span>
+        database_url := url
+    <span class="keyword">else</span>
+        database_url := <span class="string">"localhost:5432"</span>  <span class="comment">-- default</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="common-variables">
+            <h2>Common Windows Variables</h2>
+
+            <p>Reference for commonly-used Windows environment variables:</p>
+
+            <table class="api-table">
+                <tr>
+                    <th>Variable</th>
+                    <th>Description</th>
+                    <th>Example Value</th>
+                </tr>
+                <tr>
+                    <td><code>USERPROFILE</code></td>
+                    <td>User's home directory</td>
+                    <td>C:\Users\John</td>
+                </tr>
+                <tr>
+                    <td><code>APPDATA</code></td>
+                    <td>Application data (roaming)</td>
+                    <td>C:\Users\John\AppData\Roaming</td>
+                </tr>
+                <tr>
+                    <td><code>LOCALAPPDATA</code></td>
+                    <td>Local application data</td>
+                    <td>C:\Users\John\AppData\Local</td>
+                </tr>
+                <tr>
+                    <td><code>TEMP</code> / <code>TMP</code></td>
+                    <td>Temporary files directory</td>
+                    <td>C:\Users\John\AppData\Local\Temp</td>
+                </tr>
+                <tr>
+                    <td><code>PROGRAMDATA</code></td>
+                    <td>Shared application data</td>
+                    <td>C:\ProgramData</td>
+                </tr>
+                <tr>
+                    <td><code>SYSTEMROOT</code></td>
+                    <td>Windows installation directory</td>
+                    <td>C:\Windows</td>
+                </tr>
+                <tr>
+                    <td><code>PATH</code></td>
+                    <td>Executable search paths</td>
+                    <td>C:\Windows\System32;C:\Windows;...</td>
+                </tr>
+                <tr>
+                    <td><code>USERNAME</code></td>
+                    <td>Current user name</td>
+                    <td>John</td>
+                </tr>
+                <tr>
+                    <td><code>COMPUTERNAME</code></td>
+                    <td>Computer name</td>
+                    <td>DESKTOP-ABC123</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="scoop">
+            <h2>SCOOP Compatibility</h2>
+
+            <p>simple_env is designed for use with SCOOP (Simple Concurrent Object-Oriented Programming):</p>
+
+<pre><code><span class="keyword">local</span>
+    env: <span class="keyword">separate</span> <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Access through separate handler</span>
+    read_config (env)
+<span class="keyword">end</span>
+
+read_config (a_env: <span class="keyword">separate</span> <span class="type">SIMPLE_ENV</span>)
+    <span class="keyword">local</span>
+        config_value: STRING_32
+    <span class="keyword">do</span>
+        <span class="keyword">if</span> <span class="keyword">attached</span> a_env.get (<span class="string">"CONFIG"</span>) <span class="keyword">as</span> v <span class="keyword">then</span>
+            config_value := v.twin  <span class="comment">-- Copy to local</span>
+        <span class="keyword">end</span>
+    <span class="keyword">end</span></code></pre>
+
+            <p>Key points for SCOOP usage:</p>
+            <ul>
+                <li>Each instance operates independently</li>
+                <li>No shared mutable state between instances</li>
+                <li>Direct Win32 API calls are atomic</li>
+                <li>String results should be copied when needed across separate boundaries</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>Part of the <a href="https://github.com/simple-eiffel">simple_*</a> ecosystem of focused, single-purpose Eiffel libraries.</p>
+        <p>&copy; 2025 Larry Rix. MIT License.</p>
+    </footer>
+</body>
+</html>

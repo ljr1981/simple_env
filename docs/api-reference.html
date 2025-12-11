@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Reference - simple_env</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="images/logo.png" alt="simple_* logo" class="logo">
+        </div>
+        <h1>simple_env</h1>
+        <p class="tagline">API Reference</p>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="user-guide.html">User Guide</a></li>
+            <li><a href="api-reference.html" class="active">API Reference</a></li>
+            <li><a href="architecture.html">Architecture</a></li>
+            <li><a href="cookbook.html">Cookbook</a></li>
+            <li><a href="https://github.com/simple-eiffel/simple_env">GitHub</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <section id="simple-env">
+            <h2>SIMPLE_ENV</h2>
+            <p>SCOOP-compatible environment variable access via Win32 API.</p>
+
+            <h3>Creation</h3>
+            <table class="api-table">
+                <tr>
+                    <th>Feature</th>
+                    <th>Signature</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><code>default_create</code></td>
+                    <td><code></code></td>
+                    <td>Create instance. No arguments needed.</td>
+                </tr>
+            </table>
+
+            <h3>Access</h3>
+            <table class="api-table">
+                <tr>
+                    <th>Feature</th>
+                    <th>Signature</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><code>get</code></td>
+                    <td><code>(a_name: READABLE_STRING_GENERAL): detachable STRING_32</code></td>
+                    <td>Get value of environment variable. Returns Void if not set.</td>
+                </tr>
+                <tr>
+                    <td><code>item</code> alias <code>[]</code></td>
+                    <td><code>(a_name: READABLE_STRING_GENERAL): detachable STRING_32</code></td>
+                    <td>Array-style access. Alias for <code>get</code>.</td>
+                </tr>
+            </table>
+
+            <h4>Contract: get</h4>
+<pre><code>get (a_name: READABLE_STRING_GENERAL): <span class="keyword">detachable</span> STRING_32
+    <span class="keyword">require</span>
+        name_not_empty: <span class="keyword">not</span> a_name.is_empty</code></pre>
+
+            <h3>Status Report</h3>
+            <table class="api-table">
+                <tr>
+                    <th>Feature</th>
+                    <th>Signature</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><code>has</code></td>
+                    <td><code>(a_name: READABLE_STRING_GENERAL): BOOLEAN</code></td>
+                    <td>Does environment variable exist?</td>
+                </tr>
+                <tr>
+                    <td><code>last_operation_succeeded</code></td>
+                    <td><code>: BOOLEAN</code></td>
+                    <td>Did the last set/unset operation succeed?</td>
+                </tr>
+            </table>
+
+            <h4>Contract: has</h4>
+<pre><code>has (a_name: READABLE_STRING_GENERAL): BOOLEAN
+    <span class="keyword">require</span>
+        name_not_empty: <span class="keyword">not</span> a_name.is_empty</code></pre>
+
+            <h3>Modification</h3>
+            <table class="api-table">
+                <tr>
+                    <th>Feature</th>
+                    <th>Signature</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><code>set</code></td>
+                    <td><code>(a_name, a_value: READABLE_STRING_GENERAL)</code></td>
+                    <td>Set environment variable to value.</td>
+                </tr>
+                <tr>
+                    <td><code>put</code></td>
+                    <td><code>(a_value, a_name: READABLE_STRING_GENERAL)</code></td>
+                    <td>Set variable (HASH_TABLE convention: value first).</td>
+                </tr>
+                <tr>
+                    <td><code>unset</code></td>
+                    <td><code>(a_name: READABLE_STRING_GENERAL)</code></td>
+                    <td>Remove environment variable.</td>
+                </tr>
+            </table>
+
+            <h4>Contract: set</h4>
+<pre><code>set (a_name, a_value: READABLE_STRING_GENERAL)
+    <span class="keyword">require</span>
+        name_not_empty: <span class="keyword">not</span> a_name.is_empty
+    <span class="keyword">ensure</span>
+        variable_set: last_operation_succeeded <span class="keyword">implies</span> <span class="keyword">attached</span> get (a_name)</code></pre>
+
+            <h4>Contract: unset</h4>
+<pre><code>unset (a_name: READABLE_STRING_GENERAL)
+    <span class="keyword">require</span>
+        name_not_empty: <span class="keyword">not</span> a_name.is_empty
+    <span class="keyword">ensure</span>
+        variable_removed: last_operation_succeeded <span class="keyword">implies</span> <span class="keyword">not</span> has (a_name)</code></pre>
+
+            <h3>Expansion</h3>
+            <table class="api-table">
+                <tr>
+                    <th>Feature</th>
+                    <th>Signature</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><code>expand</code></td>
+                    <td><code>(a_string: READABLE_STRING_GENERAL): STRING_32</code></td>
+                    <td>Expand %VAR% references in string.</td>
+                </tr>
+            </table>
+
+            <h4>Contract: expand</h4>
+<pre><code>expand (a_string: READABLE_STRING_GENERAL): STRING_32
+    <span class="keyword">require</span>
+        string_not_empty: <span class="keyword">not</span> a_string.is_empty</code></pre>
+
+            <h4>Example</h4>
+<pre><code><span class="comment">-- Input: "%USERPROFILE%\Documents"</span>
+<span class="comment">-- Output: "C:\Users\John\Documents"</span>
+
+<span class="comment">-- Unknown variables are left unchanged:</span>
+<span class="comment">-- Input: "%UNKNOWN%"</span>
+<span class="comment">-- Output: "%UNKNOWN%"</span></code></pre>
+
+            <h3>Enumeration</h3>
+            <table class="api-table">
+                <tr>
+                    <th>Feature</th>
+                    <th>Signature</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><code>all_names</code></td>
+                    <td><code>: ARRAYED_LIST [STRING_32]</code></td>
+                    <td>All environment variable names in current process.</td>
+                </tr>
+                <tr>
+                    <td><code>names_with_prefix</code></td>
+                    <td><code>(a_prefix: READABLE_STRING_GENERAL): ARRAYED_LIST [STRING_32]</code></td>
+                    <td>All variable names starting with prefix (case-insensitive).</td>
+                </tr>
+            </table>
+
+            <h4>Contract: all_names</h4>
+<pre><code>all_names: ARRAYED_LIST [STRING_32]
+    <span class="keyword">ensure</span>
+        result_attached: Result /= <span class="keyword">Void</span></code></pre>
+
+            <h4>Contract: names_with_prefix</h4>
+<pre><code>names_with_prefix (a_prefix: READABLE_STRING_GENERAL): ARRAYED_LIST [STRING_32]
+    <span class="keyword">require</span>
+        prefix_not_empty: <span class="keyword">not</span> a_prefix.is_empty
+    <span class="keyword">ensure</span>
+        result_attached: Result /= <span class="keyword">Void</span></code></pre>
+        </section>
+
+        <section id="usage-examples">
+            <h2>Usage Examples</h2>
+
+            <h3>Getting Variables</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Using get with attached</span>
+    <span class="keyword">if</span> <span class="keyword">attached</span> env.get (<span class="string">"PATH"</span>) <span class="keyword">as</span> path <span class="keyword">then</span>
+        print (path)
+    <span class="keyword">end</span>
+
+    <span class="comment">-- Using bracket notation</span>
+    <span class="keyword">if</span> <span class="keyword">attached</span> env [<span class="string">"TEMP"</span>] <span class="keyword">as</span> temp <span class="keyword">then</span>
+        print (temp)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+
+            <h3>Setting Variables</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    env.set (<span class="string">"MY_APP_CONFIG"</span>, <span class="string">"/etc/myapp/config"</span>)
+
+    <span class="keyword">if</span> env.last_operation_succeeded <span class="keyword">then</span>
+        print (<span class="string">"Configuration path set"</span>)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+
+            <h3>Expanding Paths</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+    config_path: STRING_32
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- Expand Windows path variables</span>
+    config_path := env.expand (<span class="string">"%APPDATA%\MyApp\config.json"</span>)
+    <span class="comment">-- Result: "C:\Users\John\AppData\Roaming\MyApp\config.json"</span>
+<span class="keyword">end</span></code></pre>
+
+            <h3>Enumerating Variables</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+
+    <span class="comment">-- List all variables</span>
+    <span class="keyword">across</span> env.all_names <span class="keyword">as</span> name <span class="keyword">loop</span>
+        <span class="keyword">if</span> <span class="keyword">attached</span> env.get (name) <span class="keyword">as</span> value <span class="keyword">then</span>
+            print (name + <span class="string">"="</span> + value + <span class="string">"%N"</span>)
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+
+    <span class="comment">-- List only SIMPLE_* variables</span>
+    <span class="keyword">across</span> env.names_with_prefix (<span class="string">"SIMPLE_"</span>) <span class="keyword">as</span> lib <span class="keyword">loop</span>
+        print (lib + <span class="string">"%N"</span>)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="return-types">
+            <h2>Return Types</h2>
+
+            <table class="api-table">
+                <tr>
+                    <th>Type</th>
+                    <th>Used By</th>
+                    <th>Notes</th>
+                </tr>
+                <tr>
+                    <td><code>detachable STRING_32</code></td>
+                    <td>get, item</td>
+                    <td>Void if variable doesn't exist</td>
+                </tr>
+                <tr>
+                    <td><code>STRING_32</code></td>
+                    <td>expand</td>
+                    <td>Always returns a string (original if no expansion)</td>
+                </tr>
+                <tr>
+                    <td><code>BOOLEAN</code></td>
+                    <td>has, last_operation_succeeded</td>
+                    <td>True/False status</td>
+                </tr>
+                <tr>
+                    <td><code>ARRAYED_LIST [STRING_32]</code></td>
+                    <td>all_names, names_with_prefix</td>
+                    <td>Never Void, may be empty</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="error-conditions">
+            <h2>Error Conditions</h2>
+
+            <table class="api-table">
+                <tr>
+                    <th>Operation</th>
+                    <th>Failure Condition</th>
+                    <th>Result</th>
+                </tr>
+                <tr>
+                    <td><code>get</code></td>
+                    <td>Variable doesn't exist</td>
+                    <td>Returns Void</td>
+                </tr>
+                <tr>
+                    <td><code>set</code></td>
+                    <td>Insufficient permissions or system limit</td>
+                    <td><code>last_operation_succeeded</code> = False</td>
+                </tr>
+                <tr>
+                    <td><code>unset</code></td>
+                    <td>Variable doesn't exist or permission denied</td>
+                    <td><code>last_operation_succeeded</code> = False</td>
+                </tr>
+                <tr>
+                    <td><code>expand</code></td>
+                    <td>Unknown variable in string</td>
+                    <td>Returns original %VAR% unchanged</td>
+                </tr>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        <p>Part of the <a href="https://github.com/simple-eiffel">simple_*</a> ecosystem of focused, single-purpose Eiffel libraries.</p>
+        <p>&copy; 2025 Larry Rix. MIT License.</p>
+    </footer>
+</body>
+</html>

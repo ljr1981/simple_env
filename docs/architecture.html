@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture - simple_env</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="images/logo.png" alt="simple_* logo" class="logo">
+        </div>
+        <h1>simple_env</h1>
+        <p class="tagline">Architecture</p>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="user-guide.html">User Guide</a></li>
+            <li><a href="api-reference.html">API Reference</a></li>
+            <li><a href="architecture.html" class="active">Architecture</a></li>
+            <li><a href="cookbook.html">Cookbook</a></li>
+            <li><a href="https://github.com/simple-eiffel/simple_env">GitHub</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <section id="overview">
+            <h2>Architecture Overview</h2>
+            <p>simple_env provides a clean Eiffel interface to environment variables using direct Win32 API calls. Unlike the standard Eiffel EXECUTION_ENVIRONMENT, it's designed specifically for SCOOP compatibility and uses inline C for performance.</p>
+
+            <div class="architecture-diagram">
+<pre>
++------------------+
+|   SIMPLE_ENV     |
+|   (Facade)       |
++------------------+
+| + get()          |
+| + set()          |
+| + unset()        |
+| + expand()       |
+| + has()          |
+| + all_names()    |
++------------------+
+        |
+        | Inline C externals
+        v
++------------------+
+|  simple_env.h    |
+|  (C Header)      |
++------------------+
+| se_get_env()     |
+| se_set_env()     |
+| se_unset_env()   |
+| se_expand_env()  |
+| se_env_exists()  |
++------------------+
+        |
+        v
++------------------+
+|   Win32 API      |
++------------------+
+| GetEnvironment   |
+|   VariableA()    |
+| SetEnvironment   |
+|   VariableA()    |
+| ExpandEnvironment|
+|   StringsA()     |
++------------------+
+</pre>
+            </div>
+        </section>
+
+        <section id="design-decisions">
+            <h2>Design Decisions</h2>
+
+            <h3>Why Not Use EXECUTION_ENVIRONMENT?</h3>
+            <p>The standard Eiffel EXECUTION_ENVIRONMENT class has several limitations:</p>
+            <ul>
+                <li><strong>Not SCOOP-compatible</strong> - Uses internal caching that isn't thread-safe</li>
+                <li><strong>No string expansion</strong> - Can't expand %VAR% references</li>
+                <li><strong>No enumeration</strong> - Can't list all variables</li>
+                <li><strong>Limited error handling</strong> - No way to check if operations succeed</li>
+            </ul>
+
+            <h3>Why Direct Win32 API?</h3>
+            <ul>
+                <li><strong>SCOOP compatibility</strong> - No shared state between calls</li>
+                <li><strong>Full functionality</strong> - Access to all environment features</li>
+                <li><strong>Performance</strong> - No intermediate layers</li>
+                <li><strong>Reliability</strong> - Direct system calls with proper error handling</li>
+            </ul>
+
+            <h3>Why Inline C Pattern?</h3>
+            <p>Following Eric Bezault's inline C pattern, all C code is embedded directly in the Eiffel source:</p>
+            <ul>
+                <li>No separate .c/.obj files to compile</li>
+                <li>Simpler build process</li>
+                <li>All code in one place for maintenance</li>
+                <li>Portable across Eiffel compilers</li>
+            </ul>
+        </section>
+
+        <section id="c-implementation">
+            <h2>C Implementation</h2>
+
+            <h3>Header File Structure</h3>
+            <p>The <code>simple_env.h</code> header contains all C implementations:</p>
+
+<pre><code><span class="comment">// simple_env.h - Environment variable operations</span>
+#include &lt;windows.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+
+<span class="comment">// Get environment variable value</span>
+<span class="comment">// Returns allocated string (caller must free) or NULL</span>
+<span class="keyword">static inline</span> <span class="type">char</span>* se_get_env(<span class="keyword">const</span> <span class="type">char</span>* name) {
+    DWORD size = GetEnvironmentVariableA(name, NULL, 0);
+    <span class="keyword">if</span> (size == 0) <span class="keyword">return</span> NULL;
+
+    <span class="type">char</span>* buffer = (<span class="type">char</span>*)malloc(size);
+    <span class="keyword">if</span> (buffer == NULL) <span class="keyword">return</span> NULL;
+
+    GetEnvironmentVariableA(name, buffer, size);
+    <span class="keyword">return</span> buffer;
+}
+
+<span class="comment">// Set environment variable</span>
+<span class="comment">// Returns 1 on success, 0 on failure</span>
+<span class="keyword">static inline</span> <span class="type">int</span> se_set_env(<span class="keyword">const</span> <span class="type">char</span>* name, <span class="keyword">const</span> <span class="type">char</span>* value) {
+    <span class="keyword">return</span> SetEnvironmentVariableA(name, value) ? 1 : 0;
+}
+
+<span class="comment">// Unset environment variable</span>
+<span class="keyword">static inline</span> <span class="type">int</span> se_unset_env(<span class="keyword">const</span> <span class="type">char</span>* name) {
+    <span class="keyword">return</span> SetEnvironmentVariableA(name, NULL) ? 1 : 0;
+}
+
+<span class="comment">// Expand environment strings (%VAR% -> value)</span>
+<span class="keyword">static inline</span> <span class="type">char</span>* se_expand_env(<span class="keyword">const</span> <span class="type">char</span>* input) {
+    DWORD size = ExpandEnvironmentStringsA(input, NULL, 0);
+    <span class="keyword">if</span> (size == 0) <span class="keyword">return</span> NULL;
+
+    <span class="type">char</span>* buffer = (<span class="type">char</span>*)malloc(size);
+    <span class="keyword">if</span> (buffer == NULL) <span class="keyword">return</span> NULL;
+
+    ExpandEnvironmentStringsA(input, buffer, size);
+    <span class="keyword">return</span> buffer;
+}
+
+<span class="comment">// Check if variable exists</span>
+<span class="keyword">static inline</span> <span class="type">int</span> se_env_exists(<span class="keyword">const</span> <span class="type">char</span>* name) {
+    DWORD size = GetEnvironmentVariableA(name, NULL, 0);
+    <span class="keyword">return</span> (size > 0 || GetLastError() != ERROR_ENVVAR_NOT_FOUND) ? 1 : 0;
+}</code></pre>
+
+            <h3>Memory Management</h3>
+            <p>The C functions allocate memory that must be freed by the caller:</p>
+
+<pre><code><span class="comment">-- Eiffel side: always free allocated memory</span>
+l_result := c_se_get_env (l_name.item)
+<span class="keyword">if</span> l_result /= default_pointer <span class="keyword">then</span>
+    Result := pointer_to_string (l_result)
+    c_free (l_result)  <span class="comment">-- Essential: prevent memory leak</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="eiffel-bindings">
+            <h2>Eiffel External Bindings</h2>
+
+            <h3>Inline C Pattern</h3>
+<pre><code><span class="keyword">feature</span> {NONE} <span class="comment">-- C externals</span>
+
+    c_se_get_env (a_name: POINTER): POINTER
+            <span class="comment">-- Get environment variable value. Caller must free result.</span>
+        <span class="keyword">external</span> <span class="string">"C inline use %"simple_env.h%""</span>
+        <span class="keyword">alias</span> <span class="string">"return se_get_env((const char*)$a_name);"</span>
+        <span class="keyword">end</span>
+
+    c_se_set_env (a_name, a_value: POINTER): INTEGER
+            <span class="comment">-- Set environment variable. Returns 1 on success.</span>
+        <span class="keyword">external</span> <span class="string">"C inline use %"simple_env.h%""</span>
+        <span class="keyword">alias</span> <span class="string">"return se_set_env((const char*)$a_name, (const char*)$a_value);"</span>
+        <span class="keyword">end</span>
+
+    c_se_expand_env (a_input: POINTER): POINTER
+            <span class="comment">-- Expand environment strings. Caller must free result.</span>
+        <span class="keyword">external</span> <span class="string">"C inline use %"simple_env.h%""</span>
+        <span class="keyword">alias</span> <span class="string">"return se_expand_env((const char*)$a_input);"</span>
+        <span class="keyword">end</span>
+
+    c_free (a_ptr: POINTER)
+            <span class="comment">-- Free allocated memory.</span>
+        <span class="keyword">external</span> <span class="string">"C inline use &lt;stdlib.h&gt;"</span>
+        <span class="keyword">alias</span> <span class="string">"free($a_ptr);"</span>
+        <span class="keyword">end</span></code></pre>
+
+            <h3>String Conversion</h3>
+            <p>Eiffel strings are converted to C strings using C_STRING:</p>
+
+<pre><code>get (a_name: READABLE_STRING_GENERAL): <span class="keyword">detachable</span> STRING_32
+    <span class="keyword">local</span>
+        l_name: C_STRING
+        l_result: POINTER
+    <span class="keyword">do</span>
+        <span class="comment">-- Convert Eiffel string to C string</span>
+        <span class="keyword">create</span> l_name.make (a_name.to_string_8)
+
+        <span class="comment">-- Call C function</span>
+        l_result := c_se_get_env (l_name.item)
+
+        <span class="comment">-- Convert result back to Eiffel string</span>
+        <span class="keyword">if</span> l_result /= default_pointer <span class="keyword">then</span>
+            Result := pointer_to_string (l_result)
+            c_free (l_result)
+        <span class="keyword">end</span>
+    <span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="enumeration">
+            <h2>Variable Enumeration</h2>
+
+            <h3>Implementation Strategy</h3>
+            <p>Enumerating all environment variables requires accessing the process environment block:</p>
+
+<pre><code><span class="comment">// C implementation: Get all variable names</span>
+<span class="type">char</span>* se_get_all_names(<span class="type">void</span>) {
+    <span class="type">char</span>* env_block = GetEnvironmentStringsA();
+    <span class="keyword">if</span> (env_block == NULL) <span class="keyword">return</span> NULL;
+
+    <span class="comment">// Count total size needed</span>
+    <span class="type">size_t</span> total_size = 0;
+    <span class="type">char</span>* ptr = env_block;
+    <span class="keyword">while</span> (*ptr) {
+        <span class="type">char</span>* eq = strchr(ptr, '=');
+        <span class="keyword">if</span> (eq && eq != ptr) {
+            total_size += (eq - ptr) + 1;  <span class="comment">// name + null</span>
+        }
+        ptr += strlen(ptr) + 1;
+    }
+    total_size++;  <span class="comment">// Final null terminator</span>
+
+    <span class="comment">// Allocate and copy names only</span>
+    <span class="type">char</span>* result = (<span class="type">char</span>*)malloc(total_size);
+    <span class="comment">// ... copy logic ...</span>
+
+    FreeEnvironmentStringsA(env_block);
+    <span class="keyword">return</span> result;
+}</code></pre>
+
+            <h3>Eiffel Parsing</h3>
+            <p>The Eiffel side parses the null-separated string block:</p>
+
+<pre><code>all_names: ARRAYED_LIST [STRING_32]
+    <span class="keyword">local</span>
+        l_ptr: POINTER
+        l_pos: INTEGER
+        l_name: STRING_8
+        l_char: CHARACTER
+    <span class="keyword">do</span>
+        <span class="keyword">create</span> Result.make (100)
+        l_ptr := c_se_get_all_names
+
+        <span class="keyword">if</span> l_ptr /= default_pointer <span class="keyword">then</span>
+            <span class="keyword">from</span>
+                l_pos := 0
+                <span class="keyword">create</span> l_name.make_empty
+            <span class="keyword">until</span>
+                <span class="comment">-- Double null = end of block</span>
+                c_char_at (l_ptr, l_pos) = '%U' <span class="keyword">and</span>
+                c_char_at (l_ptr, l_pos + 1) = '%U'
+            <span class="keyword">loop</span>
+                l_char := c_char_at (l_ptr, l_pos)
+                <span class="keyword">if</span> l_char = '%U' <span class="keyword">then</span>
+                    <span class="comment">-- End of one name</span>
+                    <span class="keyword">if</span> <span class="keyword">not</span> l_name.is_empty <span class="keyword">then</span>
+                        Result.extend (l_name.to_string_32)
+                        <span class="keyword">create</span> l_name.make_empty
+                    <span class="keyword">end</span>
+                <span class="keyword">else</span>
+                    l_name.append_character (l_char)
+                <span class="keyword">end</span>
+                l_pos := l_pos + 1
+            <span class="keyword">end</span>
+            c_free (l_ptr)
+        <span class="keyword">end</span>
+    <span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="scoop">
+            <h2>SCOOP Compatibility</h2>
+
+            <h3>Design Principles</h3>
+            <p>simple_env is designed for SCOOP from the ground up:</p>
+
+            <ul>
+                <li><strong>No shared state</strong> - Each operation is independent</li>
+                <li><strong>No internal caching</strong> - Always queries the system</li>
+                <li><strong>Atomic operations</strong> - Each Win32 call is atomic</li>
+                <li><strong>Instance independence</strong> - Multiple instances work correctly</li>
+            </ul>
+
+            <h3>Safe Usage Pattern</h3>
+<pre><code><span class="keyword">local</span>
+    env: <span class="keyword">separate</span> <span class="type">SIMPLE_ENV</span>
+<span class="keyword">do</span>
+    <span class="keyword">create</span> env
+    use_environment (env)
+<span class="keyword">end</span>
+
+use_environment (a_env: <span class="keyword">separate</span> <span class="type">SIMPLE_ENV</span>)
+    <span class="keyword">local</span>
+        config_path: STRING_32
+    <span class="keyword">do</span>
+        <span class="comment">-- String must be copied for use outside separate block</span>
+        <span class="keyword">if</span> <span class="keyword">attached</span> a_env.get (<span class="string">"CONFIG"</span>) <span class="keyword">as</span> v <span class="keyword">then</span>
+            config_path := v.twin
+        <span class="keyword">end</span>
+
+        <span class="comment">-- Now config_path can be used outside the handler</span>
+    <span class="keyword">end</span></code></pre>
+
+            <h3>Why EXECUTION_ENVIRONMENT Isn't SCOOP-Safe</h3>
+<pre><code><span class="comment">-- EXECUTION_ENVIRONMENT uses internal caching:</span>
+<span class="comment">-- 1. First call: reads from system, stores in cache</span>
+<span class="comment">-- 2. Second call: returns cached value</span>
+<span class="comment">-- Problem: cache is shared mutable state!</span>
+
+<span class="comment">-- SIMPLE_ENV: no caching, always direct API call</span>
+<span class="comment">-- 1. Every call: reads directly from system</span>
+<span class="comment">-- 2. No shared state between calls</span></code></pre>
+        </section>
+
+        <section id="contracts">
+            <h2>Design by Contract</h2>
+
+            <h3>Preconditions</h3>
+<pre><code>get (a_name: READABLE_STRING_GENERAL): <span class="keyword">detachable</span> STRING_32
+    <span class="keyword">require</span>
+        name_not_empty: <span class="keyword">not</span> a_name.is_empty
+
+set (a_name, a_value: READABLE_STRING_GENERAL)
+    <span class="keyword">require</span>
+        name_not_empty: <span class="keyword">not</span> a_name.is_empty
+
+expand (a_string: READABLE_STRING_GENERAL): STRING_32
+    <span class="keyword">require</span>
+        string_not_empty: <span class="keyword">not</span> a_string.is_empty</code></pre>
+
+            <h3>Postconditions</h3>
+<pre><code>set (a_name, a_value: READABLE_STRING_GENERAL)
+    <span class="keyword">ensure</span>
+        variable_set: last_operation_succeeded <span class="keyword">implies</span> <span class="keyword">attached</span> get (a_name)
+
+unset (a_name: READABLE_STRING_GENERAL)
+    <span class="keyword">ensure</span>
+        variable_removed: last_operation_succeeded <span class="keyword">implies</span> <span class="keyword">not</span> has (a_name)
+
+all_names: ARRAYED_LIST [STRING_32]
+    <span class="keyword">ensure</span>
+        result_attached: Result /= <span class="keyword">Void</span></code></pre>
+        </section>
+
+        <section id="win32-api">
+            <h2>Win32 API Reference</h2>
+
+            <table class="api-table">
+                <tr>
+                    <th>Win32 Function</th>
+                    <th>SIMPLE_ENV Feature</th>
+                    <th>Purpose</th>
+                </tr>
+                <tr>
+                    <td><code>GetEnvironmentVariableA</code></td>
+                    <td>get, has</td>
+                    <td>Retrieve variable value</td>
+                </tr>
+                <tr>
+                    <td><code>SetEnvironmentVariableA</code></td>
+                    <td>set, unset</td>
+                    <td>Set or remove variable</td>
+                </tr>
+                <tr>
+                    <td><code>ExpandEnvironmentStringsA</code></td>
+                    <td>expand</td>
+                    <td>Expand %VAR% references</td>
+                </tr>
+                <tr>
+                    <td><code>GetEnvironmentStringsA</code></td>
+                    <td>all_names</td>
+                    <td>Get environment block</td>
+                </tr>
+                <tr>
+                    <td><code>FreeEnvironmentStringsA</code></td>
+                    <td>all_names (internal)</td>
+                    <td>Free environment block</td>
+                </tr>
+            </table>
+
+            <p>Note: The "A" suffix indicates ANSI (8-bit) character versions. Unicode (UTF-16) versions exist with "W" suffix but are not currently used.</p>
+        </section>
+    </main>
+
+    <footer>
+        <p>Part of the <a href="https://github.com/simple-eiffel">simple_*</a> ecosystem of focused, single-purpose Eiffel libraries.</p>
+        <p>&copy; 2025 Larry Rix. MIT License.</p>
+    </footer>
+</body>
+</html>

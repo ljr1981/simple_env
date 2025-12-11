@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookbook - simple_env</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="images/logo.png" alt="simple_* logo" class="logo">
+        </div>
+        <h1>simple_env</h1>
+        <p class="tagline">Cookbook</p>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="user-guide.html">User Guide</a></li>
+            <li><a href="api-reference.html">API Reference</a></li>
+            <li><a href="architecture.html">Architecture</a></li>
+            <li><a href="cookbook.html" class="active">Cookbook</a></li>
+            <li><a href="https://github.com/simple-eiffel/simple_env">GitHub</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <section id="toc">
+            <h2>Recipes</h2>
+            <ol>
+                <li><a href="#config-manager">Application Configuration Manager</a></li>
+                <li><a href="#path-resolver">Dynamic Path Resolver</a></li>
+                <li><a href="#feature-flags">Feature Flags from Environment</a></li>
+                <li><a href="#library-paths">Library Path Manager</a></li>
+                <li><a href="#env-dump">Environment Dump Utility</a></li>
+                <li><a href="#dotenv">Simple .env File Loader</a></li>
+                <li><a href="#multi-env">Multi-Environment Configuration</a></li>
+                <li><a href="#connection-string">Database Connection String Builder</a></li>
+            </ol>
+        </section>
+
+        <section id="config-manager">
+            <h2>1. Application Configuration Manager</h2>
+            <p>Centralized configuration with defaults and validation.</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">APP_CONFIG</span>
+
+<span class="keyword">create</span>
+    make
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Initialization</span>
+
+    make
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> env
+            load_config
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Configuration</span>
+
+    database_host: STRING_32
+    database_port: INTEGER
+    log_level: STRING_32
+    debug_mode: BOOLEAN
+    max_connections: INTEGER
+
+<span class="keyword">feature</span> <span class="comment">-- Queries</span>
+
+    is_valid: BOOLEAN
+        <span class="keyword">do</span>
+            Result := <span class="keyword">not</span> database_host.is_empty <span class="keyword">and</span>
+                      database_port > 0 <span class="keyword">and</span>
+                      max_connections > 0
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Implementation</span>
+
+    env: SIMPLE_ENV
+
+    load_config
+        <span class="keyword">do</span>
+            <span class="comment">-- Required with defaults</span>
+            database_host := get_or_default (<span class="string">"DB_HOST"</span>, <span class="string">"localhost"</span>)
+            database_port := get_integer_or_default (<span class="string">"DB_PORT"</span>, 5432)
+            log_level := get_or_default (<span class="string">"LOG_LEVEL"</span>, <span class="string">"INFO"</span>)
+            max_connections := get_integer_or_default (<span class="string">"MAX_CONNECTIONS"</span>, 10)
+
+            <span class="comment">-- Boolean flag</span>
+            debug_mode := get_boolean (<span class="string">"DEBUG"</span>)
+        <span class="keyword">end</span>
+
+    get_or_default (a_name, a_default: STRING_32): STRING_32
+        <span class="keyword">do</span>
+            <span class="keyword">if</span> <span class="keyword">attached</span> env.get (a_name) <span class="keyword">as</span> v <span class="keyword">then</span>
+                Result := v
+            <span class="keyword">else</span>
+                Result := a_default
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    get_integer_or_default (a_name: STRING_32; a_default: INTEGER): INTEGER
+        <span class="keyword">do</span>
+            <span class="keyword">if</span> <span class="keyword">attached</span> env.get (a_name) <span class="keyword">as</span> v <span class="keyword">and then</span> v.is_integer <span class="keyword">then</span>
+                Result := v.to_integer
+            <span class="keyword">else</span>
+                Result := a_default
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    get_boolean (a_name: STRING_32): BOOLEAN
+        <span class="keyword">do</span>
+            <span class="keyword">if</span> <span class="keyword">attached</span> env.get (a_name) <span class="keyword">as</span> v <span class="keyword">then</span>
+                Result := v.same_string (<span class="string">"true"</span>) <span class="keyword">or</span>
+                          v.same_string (<span class="string">"1"</span>) <span class="keyword">or</span>
+                          v.same_string (<span class="string">"yes"</span>)
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+<span class="keyword">end</span></code></pre>
+
+            <h3>Usage</h3>
+<pre><code><span class="keyword">local</span>
+    config: APP_CONFIG
+<span class="keyword">do</span>
+    <span class="keyword">create</span> config.make
+
+    <span class="keyword">if</span> config.is_valid <span class="keyword">then</span>
+        print (<span class="string">"Database: "</span> + config.database_host + <span class="string">":"</span> +
+               config.database_port.out)
+
+        <span class="keyword">if</span> config.debug_mode <span class="keyword">then</span>
+            print (<span class="string">"Debug mode enabled%N"</span>)
+        <span class="keyword">end</span>
+    <span class="keyword">else</span>
+        print (<span class="string">"Invalid configuration%N"</span>)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="path-resolver">
+            <h2>2. Dynamic Path Resolver</h2>
+            <p>Resolve application paths with environment variable expansion.</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">PATH_RESOLVER</span>
+
+<span class="keyword">create</span>
+    make
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Initialization</span>
+
+    make
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> env
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Path Resolution</span>
+
+    config_dir: STRING_32
+        <span class="keyword">do</span>
+            Result := env.expand (<span class="string">"%APPDATA%\MyApp"</span>)
+        <span class="keyword">end</span>
+
+    data_dir: STRING_32
+        <span class="keyword">do</span>
+            Result := env.expand (<span class="string">"%LOCALAPPDATA%\MyApp\Data"</span>)
+        <span class="keyword">end</span>
+
+    log_dir: STRING_32
+        <span class="keyword">do</span>
+            <span class="keyword">if</span> <span class="keyword">attached</span> env.get (<span class="string">"MYAPP_LOG_DIR"</span>) <span class="keyword">as</span> custom <span class="keyword">then</span>
+                Result := custom
+            <span class="keyword">else</span>
+                Result := env.expand (<span class="string">"%TEMP%\MyApp\Logs"</span>)
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    temp_file (a_name: STRING_32): STRING_32
+        <span class="keyword">do</span>
+            Result := env.expand (<span class="string">"%TEMP%\"</span>) + a_name
+        <span class="keyword">end</span>
+
+    user_document (a_name: STRING_32): STRING_32
+        <span class="keyword">do</span>
+            Result := env.expand (<span class="string">"%USERPROFILE%\Documents\"</span>) + a_name
+        <span class="keyword">end</span>
+
+    resolve (a_template: STRING_32): STRING_32
+            <span class="comment">-- Resolve any path with %VAR% references</span>
+        <span class="keyword">do</span>
+            Result := env.expand (a_template)
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Implementation</span>
+
+    env: SIMPLE_ENV
+
+<span class="keyword">end</span></code></pre>
+
+            <h3>Usage</h3>
+<pre><code><span class="keyword">local</span>
+    paths: PATH_RESOLVER
+<span class="keyword">do</span>
+    <span class="keyword">create</span> paths.make
+
+    <span class="comment">-- Standard locations</span>
+    print (<span class="string">"Config: "</span> + paths.config_dir + <span class="string">"%N"</span>)
+    print (<span class="string">"Logs: "</span> + paths.log_dir + <span class="string">"%N"</span>)
+
+    <span class="comment">-- Dynamic paths</span>
+    print (<span class="string">"Temp: "</span> + paths.temp_file (<span class="string">"cache.tmp"</span>) + <span class="string">"%N"</span>)
+
+    <span class="comment">-- Custom templates</span>
+    print (paths.resolve (<span class="string">"%PROGRAMFILES%\MyApp\bin"</span>))
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="feature-flags">
+            <h2>3. Feature Flags from Environment</h2>
+            <p>Control application features via environment variables.</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">FEATURE_FLAGS</span>
+
+<span class="keyword">create</span>
+    make
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Initialization</span>
+
+    make
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> env
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Feature Queries</span>
+
+    is_enabled (a_feature: STRING_32): BOOLEAN
+            <span class="comment">-- Is feature enabled via FEATURE_{name}=true/1/yes?</span>
+        <span class="keyword">do</span>
+            <span class="keyword">if</span> <span class="keyword">attached</span> env.get (<span class="string">"FEATURE_"</span> + a_feature.as_upper) <span class="keyword">as</span> v <span class="keyword">then</span>
+                Result := v.same_string_general (<span class="string">"true"</span>) <span class="keyword">or</span>
+                          v.same_string_general (<span class="string">"1"</span>) <span class="keyword">or</span>
+                          v.same_string_general (<span class="string">"yes"</span>)
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    is_disabled (a_feature: STRING_32): BOOLEAN
+            <span class="comment">-- Is feature explicitly disabled?</span>
+        <span class="keyword">do</span>
+            <span class="keyword">if</span> <span class="keyword">attached</span> env.get (<span class="string">"FEATURE_"</span> + a_feature.as_upper) <span class="keyword">as</span> v <span class="keyword">then</span>
+                Result := v.same_string_general (<span class="string">"false"</span>) <span class="keyword">or</span>
+                          v.same_string_general (<span class="string">"0"</span>) <span class="keyword">or</span>
+                          v.same_string_general (<span class="string">"no"</span>)
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    enabled_features: ARRAYED_LIST [STRING_32]
+            <span class="comment">-- All currently enabled features</span>
+        <span class="keyword">local</span>
+            feature_vars: ARRAYED_LIST [STRING_32]
+            name: STRING_32
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> Result.make (10)
+            feature_vars := env.names_with_prefix (<span class="string">"FEATURE_"</span>)
+
+            <span class="keyword">across</span> feature_vars <span class="keyword">as</span> var <span class="keyword">loop</span>
+                name := var.substring (9, var.count)  <span class="comment">-- Remove "FEATURE_"</span>
+                <span class="keyword">if</span> is_enabled (name) <span class="keyword">then</span>
+                    Result.extend (name)
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Common Features</span>
+
+    new_ui_enabled: BOOLEAN
+        <span class="keyword">do</span>
+            Result := is_enabled (<span class="string">"NEW_UI"</span>)
+        <span class="keyword">end</span>
+
+    beta_features_enabled: BOOLEAN
+        <span class="keyword">do</span>
+            Result := is_enabled (<span class="string">"BETA"</span>)
+        <span class="keyword">end</span>
+
+    debug_logging_enabled: BOOLEAN
+        <span class="keyword">do</span>
+            Result := is_enabled (<span class="string">"DEBUG_LOGGING"</span>)
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Implementation</span>
+
+    env: SIMPLE_ENV
+
+<span class="keyword">end</span></code></pre>
+
+            <h3>Usage</h3>
+<pre><code><span class="comment">-- Set in environment:</span>
+<span class="comment">-- FEATURE_NEW_UI=true</span>
+<span class="comment">-- FEATURE_BETA=yes</span>
+<span class="comment">-- FEATURE_DEBUG_LOGGING=1</span>
+
+<span class="keyword">local</span>
+    flags: FEATURE_FLAGS
+<span class="keyword">do</span>
+    <span class="keyword">create</span> flags.make
+
+    <span class="keyword">if</span> flags.new_ui_enabled <span class="keyword">then</span>
+        show_new_ui
+    <span class="keyword">else</span>
+        show_classic_ui
+    <span class="keyword">end</span>
+
+    <span class="keyword">if</span> flags.is_enabled (<span class="string">"EXPERIMENTAL_CACHE"</span>) <span class="keyword">then</span>
+        enable_experimental_cache
+    <span class="keyword">end</span>
+
+    <span class="comment">-- List all enabled features</span>
+    <span class="keyword">across</span> flags.enabled_features <span class="keyword">as</span> f <span class="keyword">loop</span>
+        print (<span class="string">"Enabled: "</span> + f + <span class="string">"%N"</span>)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="library-paths">
+            <h2>4. Library Path Manager</h2>
+            <p>Manage simple_* library paths for build systems.</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">LIBRARY_PATHS</span>
+
+<span class="keyword">create</span>
+    make
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Initialization</span>
+
+    make
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> env
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Library Access</span>
+
+    simple_libraries: ARRAYED_LIST [TUPLE [name, path: STRING_32]]
+            <span class="comment">-- All configured SIMPLE_* libraries</span>
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> Result.make (20)
+            <span class="keyword">across</span> env.names_with_prefix (<span class="string">"SIMPLE_"</span>) <span class="keyword">as</span> name <span class="keyword">loop</span>
+                <span class="keyword">if</span> <span class="keyword">attached</span> env.get (name) <span class="keyword">as</span> path <span class="keyword">then</span>
+                    Result.extend ([name.twin, path.twin])
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    library_path (a_name: STRING_32): detachable STRING_32
+            <span class="comment">-- Get path for specific library (e.g., "json" -> SIMPLE_JSON path)</span>
+        <span class="keyword">do</span>
+            Result := env.get (<span class="string">"SIMPLE_"</span> + a_name.as_upper)
+        <span class="keyword">end</span>
+
+    is_configured (a_name: STRING_32): BOOLEAN
+            <span class="comment">-- Is library path configured?</span>
+        <span class="keyword">do</span>
+            Result := env.has (<span class="string">"SIMPLE_"</span> + a_name.as_upper)
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Validation</span>
+
+    missing_libraries (a_required: ARRAY [STRING_32]): ARRAYED_LIST [STRING_32]
+            <span class="comment">-- Which required libraries are not configured?</span>
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> Result.make (a_required.count)
+            <span class="keyword">across</span> a_required <span class="keyword">as</span> lib <span class="keyword">loop</span>
+                <span class="keyword">if</span> <span class="keyword">not</span> is_configured (lib) <span class="keyword">then</span>
+                    Result.extend (lib)
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    validate_required (a_required: ARRAY [STRING_32]): BOOLEAN
+            <span class="comment">-- Are all required libraries configured?</span>
+        <span class="keyword">do</span>
+            Result := missing_libraries (a_required).is_empty
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Output</span>
+
+    generate_env_script: STRING_32
+            <span class="comment">-- Generate shell script to set all library paths</span>
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> Result.make (1024)
+            Result.append (<span class="string">"#!/bin/bash%N"</span>)
+            <span class="keyword">across</span> simple_libraries <span class="keyword">as</span> lib <span class="keyword">loop</span>
+                Result.append (<span class="string">"export "</span> + lib.name + <span class="string">"="</span> + lib.path + <span class="string">"%N"</span>)
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Implementation</span>
+
+    env: SIMPLE_ENV
+
+<span class="keyword">end</span></code></pre>
+
+            <h3>Usage</h3>
+<pre><code><span class="keyword">local</span>
+    libs: LIBRARY_PATHS
+    required: ARRAY [STRING_32]
+<span class="keyword">do</span>
+    <span class="keyword">create</span> libs.make
+
+    <span class="comment">-- Check required libraries</span>
+    required := &lt;&lt;<span class="string">"JSON"</span>, <span class="string">"FILE"</span>, <span class="string">"ENV"</span>&gt;&gt;
+
+    <span class="keyword">if</span> <span class="keyword">not</span> libs.validate_required (required) <span class="keyword">then</span>
+        print (<span class="string">"Missing libraries:%N"</span>)
+        <span class="keyword">across</span> libs.missing_libraries (required) <span class="keyword">as</span> lib <span class="keyword">loop</span>
+            print (<span class="string">"  SIMPLE_"</span> + lib + <span class="string">"%N"</span>)
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+
+    <span class="comment">-- List all configured</span>
+    <span class="keyword">across</span> libs.simple_libraries <span class="keyword">as</span> lib <span class="keyword">loop</span>
+        print (lib.name + <span class="string">" = "</span> + lib.path + <span class="string">"%N"</span>)
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="env-dump">
+            <h2>5. Environment Dump Utility</h2>
+            <p>Dump environment variables for debugging.</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">ENV_DUMP</span>
+
+<span class="keyword">create</span>
+    make
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Initialization</span>
+
+    make
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> env
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Output</span>
+
+    dump_all: STRING_32
+            <span class="comment">-- All environment variables as NAME=VALUE</span>
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> Result.make (4096)
+            <span class="keyword">across</span> env.all_names <span class="keyword">as</span> name <span class="keyword">loop</span>
+                <span class="keyword">if</span> <span class="keyword">attached</span> env.get (name) <span class="keyword">as</span> value <span class="keyword">then</span>
+                    Result.append (name + <span class="string">"="</span> + value + <span class="string">"%N"</span>)
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    dump_filtered (a_prefix: STRING_32): STRING_32
+            <span class="comment">-- Variables matching prefix</span>
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> Result.make (1024)
+            <span class="keyword">across</span> env.names_with_prefix (a_prefix) <span class="keyword">as</span> name <span class="keyword">loop</span>
+                <span class="keyword">if</span> <span class="keyword">attached</span> env.get (name) <span class="keyword">as</span> value <span class="keyword">then</span>
+                    Result.append (name + <span class="string">"="</span> + value + <span class="string">"%N"</span>)
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    dump_sensitive_masked: STRING_32
+            <span class="comment">-- All variables with sensitive values masked</span>
+        <span class="keyword">local</span>
+            value: STRING_32
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> Result.make (4096)
+            <span class="keyword">across</span> env.all_names <span class="keyword">as</span> name <span class="keyword">loop</span>
+                <span class="keyword">if</span> <span class="keyword">attached</span> env.get (name) <span class="keyword">as</span> v <span class="keyword">then</span>
+                    <span class="keyword">if</span> is_sensitive (name) <span class="keyword">then</span>
+                        value := <span class="string">"********"</span>
+                    <span class="keyword">else</span>
+                        value := v
+                    <span class="keyword">end</span>
+                    Result.append (name + <span class="string">"="</span> + value + <span class="string">"%N"</span>)
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Implementation</span>
+
+    env: SIMPLE_ENV
+
+    sensitive_patterns: ARRAY [STRING_32]
+        <span class="keyword">once</span>
+            Result := &lt;&lt;<span class="string">"PASSWORD"</span>, <span class="string">"SECRET"</span>, <span class="string">"KEY"</span>, <span class="string">"TOKEN"</span>, <span class="string">"CREDENTIAL"</span>&gt;&gt;
+        <span class="keyword">end</span>
+
+    is_sensitive (a_name: STRING_32): BOOLEAN
+        <span class="keyword">do</span>
+            <span class="keyword">across</span> sensitive_patterns <span class="keyword">as</span> pattern <span class="keyword">loop</span>
+                <span class="keyword">if</span> a_name.as_upper.has_substring (pattern) <span class="keyword">then</span>
+                    Result := True
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="dotenv">
+            <h2>6. Simple .env File Loader</h2>
+            <p>Load environment variables from .env files.</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">DOTENV_LOADER</span>
+
+<span class="keyword">create</span>
+    make
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Initialization</span>
+
+    make
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> env
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Loading</span>
+
+    load (a_path: STRING_32): BOOLEAN
+            <span class="comment">-- Load .env file. Returns True if successful.</span>
+        <span class="keyword">local</span>
+            file: SIMPLE_FILE
+            lines: ARRAYED_LIST [STRING_32]
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> file.make (a_path)
+            <span class="keyword">if</span> file.exists <span class="keyword">then</span>
+                lines := file.read_lines
+                <span class="keyword">across</span> lines <span class="keyword">as</span> line <span class="keyword">loop</span>
+                    process_line (line)
+                <span class="keyword">end</span>
+                Result := True
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    load_if_exists (a_path: STRING_32)
+            <span class="comment">-- Load .env file if it exists (silent if not)</span>
+        <span class="keyword">do</span>
+            load (a_path).do_nothing
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Implementation</span>
+
+    env: SIMPLE_ENV
+
+    process_line (a_line: STRING_32)
+        <span class="keyword">local</span>
+            line: STRING_32
+            eq_pos: INTEGER
+            name, value: STRING_32
+        <span class="keyword">do</span>
+            line := a_line.twin
+            line.left_adjust
+            line.right_adjust
+
+            <span class="comment">-- Skip empty lines and comments</span>
+            <span class="keyword">if</span> <span class="keyword">not</span> line.is_empty <span class="keyword">and</span> <span class="keyword">not</span> line.starts_with (<span class="string">"#"</span>) <span class="keyword">then</span>
+                eq_pos := line.index_of ('=', 1)
+                <span class="keyword">if</span> eq_pos > 1 <span class="keyword">then</span>
+                    name := line.substring (1, eq_pos - 1)
+                    value := line.substring (eq_pos + 1, line.count)
+
+                    <span class="comment">-- Remove surrounding quotes if present</span>
+                    value := unquote (value)
+
+                    <span class="comment">-- Only set if not already defined (don't override)</span>
+                    <span class="keyword">if</span> <span class="keyword">not</span> env.has (name) <span class="keyword">then</span>
+                        env.set (name, value)
+                    <span class="keyword">end</span>
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    unquote (a_value: STRING_32): STRING_32
+        <span class="keyword">do</span>
+            Result := a_value.twin
+            <span class="keyword">if</span> Result.count >= 2 <span class="keyword">then</span>
+                <span class="keyword">if</span> (Result.starts_with (<span class="string">"%""</span>) <span class="keyword">and</span> Result.ends_with (<span class="string">"%""</span>)) <span class="keyword">or</span>
+                   (Result.starts_with (<span class="string">"'"</span>) <span class="keyword">and</span> Result.ends_with (<span class="string">"'"</span>)) <span class="keyword">then</span>
+                    Result := Result.substring (2, Result.count - 1)
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+<span class="keyword">end</span></code></pre>
+
+            <h3>Usage</h3>
+<pre><code><span class="comment">-- .env file:</span>
+<span class="comment">-- DATABASE_URL=postgres://localhost/mydb</span>
+<span class="comment">-- API_KEY="secret-key-12345"</span>
+<span class="comment">-- DEBUG=true</span>
+
+<span class="keyword">local</span>
+    dotenv: DOTENV_LOADER
+<span class="keyword">do</span>
+    <span class="keyword">create</span> dotenv.make
+    dotenv.load_if_exists (<span class="string">".env"</span>)
+
+    <span class="comment">-- Variables are now available via SIMPLE_ENV</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="multi-env">
+            <h2>7. Multi-Environment Configuration</h2>
+            <p>Support development, staging, and production environments.</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">MULTI_ENV_CONFIG</span>
+
+<span class="keyword">create</span>
+    make
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Initialization</span>
+
+    make
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> env
+            detect_environment
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Environment</span>
+
+    environment: STRING_32
+            <span class="comment">-- Current environment: development, staging, production</span>
+
+    is_development: BOOLEAN
+        <span class="keyword">do</span>
+            Result := environment.same_string (<span class="string">"development"</span>)
+        <span class="keyword">end</span>
+
+    is_staging: BOOLEAN
+        <span class="keyword">do</span>
+            Result := environment.same_string (<span class="string">"staging"</span>)
+        <span class="keyword">end</span>
+
+    is_production: BOOLEAN
+        <span class="keyword">do</span>
+            Result := environment.same_string (<span class="string">"production"</span>)
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Environment-Specific Values</span>
+
+    get (a_key: STRING_32): detachable STRING_32
+            <span class="comment">-- Get value, checking environment-specific first</span>
+        <span class="keyword">local</span>
+            env_key: STRING_32
+        <span class="keyword">do</span>
+            <span class="comment">-- Try environment-specific first: PROD_DATABASE_URL</span>
+            env_key := environment.as_upper.substring (1, 4) + <span class="string">"_"</span> + a_key
+            Result := env.get (env_key)
+
+            <span class="comment">-- Fall back to generic: DATABASE_URL</span>
+            <span class="keyword">if</span> Result = <span class="keyword">Void</span> <span class="keyword">then</span>
+                Result := env.get (a_key)
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Implementation</span>
+
+    env: SIMPLE_ENV
+
+    detect_environment
+        <span class="keyword">do</span>
+            <span class="keyword">if</span> <span class="keyword">attached</span> env.get (<span class="string">"APP_ENV"</span>) <span class="keyword">as</span> e <span class="keyword">then</span>
+                environment := e.as_lower
+            <span class="keyword">elseif</span> <span class="keyword">attached</span> env.get (<span class="string">"ENVIRONMENT"</span>) <span class="keyword">as</span> e <span class="keyword">then</span>
+                environment := e.as_lower
+            <span class="keyword">else</span>
+                environment := <span class="string">"development"</span>
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+<span class="keyword">end</span></code></pre>
+        </section>
+
+        <section id="connection-string">
+            <h2>8. Database Connection String Builder</h2>
+            <p>Build connection strings from environment variables.</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">DB_CONNECTION_BUILDER</span>
+
+<span class="keyword">create</span>
+    make
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Initialization</span>
+
+    make
+        <span class="keyword">do</span>
+            <span class="keyword">create</span> env
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> <span class="comment">-- Connection Strings</span>
+
+    postgres_url: detachable STRING_32
+            <span class="comment">-- Build PostgreSQL connection URL from env vars</span>
+        <span class="keyword">local</span>
+            host, port, user, pass, db: detachable STRING_32
+        <span class="keyword">do</span>
+            host := env.get (<span class="string">"DB_HOST"</span>)
+            port := env.get (<span class="string">"DB_PORT"</span>)
+            user := env.get (<span class="string">"DB_USER"</span>)
+            pass := env.get (<span class="string">"DB_PASSWORD"</span>)
+            db := env.get (<span class="string">"DB_NAME"</span>)
+
+            <span class="keyword">if</span> host /= <span class="keyword">Void</span> <span class="keyword">and</span> db /= <span class="keyword">Void</span> <span class="keyword">then</span>
+                <span class="keyword">create</span> Result.make (100)
+                Result.append (<span class="string">"postgresql://"</span>)
+
+                <span class="keyword">if</span> user /= <span class="keyword">Void</span> <span class="keyword">then</span>
+                    Result.append (user)
+                    <span class="keyword">if</span> pass /= <span class="keyword">Void</span> <span class="keyword">then</span>
+                        Result.append (<span class="string">":"</span> + pass)
+                    <span class="keyword">end</span>
+                    Result.append (<span class="string">"@"</span>)
+                <span class="keyword">end</span>
+
+                Result.append (host)
+                <span class="keyword">if</span> port /= <span class="keyword">Void</span> <span class="keyword">then</span>
+                    Result.append (<span class="string">":"</span> + port)
+                <span class="keyword">end</span>
+                Result.append (<span class="string">"/"</span> + db)
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+    sqlite_path: STRING_32
+            <span class="comment">-- Get SQLite database path</span>
+        <span class="keyword">do</span>
+            <span class="keyword">if</span> <span class="keyword">attached</span> env.get (<span class="string">"SQLITE_PATH"</span>) <span class="keyword">as</span> p <span class="keyword">then</span>
+                Result := env.expand (p)  <span class="comment">-- Expand %APPDATA% etc.</span>
+            <span class="keyword">else</span>
+                Result := env.expand (<span class="string">"%LOCALAPPDATA%\MyApp\data.db"</span>)
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+
+<span class="keyword">feature</span> {NONE} <span class="comment">-- Implementation</span>
+
+    env: SIMPLE_ENV
+
+<span class="keyword">end</span></code></pre>
+
+            <h3>Usage</h3>
+<pre><code><span class="comment">-- Environment:</span>
+<span class="comment">-- DB_HOST=localhost</span>
+<span class="comment">-- DB_PORT=5432</span>
+<span class="comment">-- DB_USER=myapp</span>
+<span class="comment">-- DB_PASSWORD=secret</span>
+<span class="comment">-- DB_NAME=myapp_dev</span>
+
+<span class="keyword">local</span>
+    builder: DB_CONNECTION_BUILDER
+<span class="keyword">do</span>
+    <span class="keyword">create</span> builder.make
+
+    <span class="keyword">if</span> <span class="keyword">attached</span> builder.postgres_url <span class="keyword">as</span> url <span class="keyword">then</span>
+        print (<span class="string">"Connecting to: "</span> + url)
+        <span class="comment">-- postgresql://myapp:secret@localhost:5432/myapp_dev</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+        </section>
+    </main>
+
+    <footer>
+        <p>Part of the <a href="https://github.com/simple-eiffel">simple_*</a> ecosystem of focused, single-purpose Eiffel libraries.</p>
+        <p>&copy; 2025 Larry Rix. MIT License.</p>
+    </footer>
+</body>
+</html>
