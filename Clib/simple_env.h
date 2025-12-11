@@ -7,6 +7,7 @@
 
 #include <windows.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* Get environment variable value. Caller must free result with free(). */
 static char* se_get_env(const char* name) {
@@ -57,5 +58,9 @@ static int se_env_exists(const char* name) {
     if (!name) return 0;
     return GetEnvironmentVariableA(name, NULL, 0) > 0 ? 1 : 0;
 }
+
+/* Declarations for functions implemented in simple_env.c */
+char* se_get_all_names(void);
+char* se_get_names_with_prefix(const char* prefix);
 
 #endif /* SIMPLE_ENV_H */

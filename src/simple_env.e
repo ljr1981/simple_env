@@ -109,6 +109,81 @@ feature -- Expansion
 			end
 		end
 
+feature -- Enumeration
+
+	all_names: ARRAYED_LIST [STRING_32]
+			-- All environment variable names.
+		local
+			l_ptr: POINTER
+			l_pos: INTEGER
+			l_name: STRING_8
+			l_char: CHARACTER
+		do
+			create Result.make (100)
+			l_ptr := c_se_get_all_names
+			if l_ptr /= default_pointer then
+				from
+					l_pos := 0
+					create l_name.make_empty
+				until
+					c_char_at (l_ptr, l_pos) = '%U' and c_char_at (l_ptr, l_pos + 1) = '%U'
+				loop
+					l_char := c_char_at (l_ptr, l_pos)
+					if l_char = '%U' then
+						if not l_name.is_empty then
+							Result.extend (l_name.to_string_32)
+							create l_name.make_empty
+						end
+					else
+						l_name.append_character (l_char)
+					end
+					l_pos := l_pos + 1
+				end
+				c_free (l_ptr)
+			end
+		ensure
+			result_attached: Result /= Void
+		end
+
+	names_with_prefix (a_prefix: READABLE_STRING_GENERAL): ARRAYED_LIST [STRING_32]
+			-- All environment variable names starting with `a_prefix'.
+			-- Case-insensitive matching.
+		require
+			prefix_not_empty: not a_prefix.is_empty
+		local
+			l_prefix: C_STRING
+			l_ptr: POINTER
+			l_pos: INTEGER
+			l_name: STRING_8
+			l_char: CHARACTER
+		do
+			create Result.make (50)
+			create l_prefix.make (a_prefix.to_string_8)
+			l_ptr := c_se_get_names_with_prefix (l_prefix.item)
+			if l_ptr /= default_pointer then
+				from
+					l_pos := 0
+					create l_name.make_empty
+				until
+					c_char_at (l_ptr, l_pos) = '%U' and c_char_at (l_ptr, l_pos + 1) = '%U'
+				loop
+					l_char := c_char_at (l_ptr, l_pos)
+					if l_char = '%U' then
+						if not l_name.is_empty then
+							Result.extend (l_name.to_string_32)
+							create l_name.make_empty
+						end
+					else
+						l_name.append_character (l_char)
+					end
+					l_pos := l_pos + 1
+				end
+				c_free (l_ptr)
+			end
+		ensure
+			result_attached: Result /= Void
+		end
+
 feature -- Status
 
 	last_operation_succeeded: BOOLEAN
@@ -161,6 +236,28 @@ feature {NONE} -- C externals (using simple_env.h)
 			-- Free allocated memory.
 		external "C inline use <stdlib.h>"
 		alias "free($a_ptr);"
+		end
+
+	c_se_get_all_names: POINTER
+			-- Get all env var names as null-separated string block.
+			-- Format: "NAME1\0NAME2\0\0" (double null at end).
+			-- Caller must free result.
+		external "C"
+		alias "se_get_all_names"
+		end
+
+	c_se_get_names_with_prefix (a_prefix: POINTER): POINTER
+			-- Get env var names matching prefix as null-separated string block.
+			-- Format: "NAME1\0NAME2\0\0" (double null at end).
+			-- Caller must free result.
+		external "C"
+		alias "se_get_names_with_prefix"
+		end
+
+	c_char_at (a_ptr: POINTER; a_index: INTEGER): CHARACTER
+			-- Character at position in C string.
+		external "C inline"
+		alias "return ((char*)$a_ptr)[$a_index];"
 		end
 
 end
