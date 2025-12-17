@@ -1,17 +1,27 @@
 /*
  * simple_env.c - Environment variable functions implementation
  * Compile this file and link with your Eiffel project
+ *
+ * Cross-platform: Windows and POSIX (Linux/macOS)
+ * Copyright (c) 2025 Larry Rix - MIT License
  */
 
-#include <windows.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if defined(_WIN32) || defined(EIF_WINDOWS)
+#include <windows.h>
+#else
+#include <unistd.h>
+extern char **environ;
+#endif
 
 /* Get all environment variable names as null-separated string block.
  * Format: "NAME1\0NAME2\0NAME3\0\0" (double null at end)
  * Caller must free result with free().
  * Returns NULL on failure. */
 char* se_get_all_names(void) {
+#if defined(_WIN32) || defined(EIF_WINDOWS)
     char* env_block;
     char* result;
     char* p;
@@ -69,13 +79,61 @@ char* se_get_all_names(void) {
 
     FreeEnvironmentStringsA(env_block);
     return result;
+#else
+    /* POSIX implementation using environ */
+    char** env;
+    char* result;
+    char* out;
+    size_t total_len = 0;
+    size_t name_len;
+
+    if (!environ) return NULL;
+
+    /* First pass: calculate total length needed */
+    for (env = environ; *env; env++) {
+        char* eq = strchr(*env, '=');
+        if (eq) {
+            name_len = eq - *env;
+            total_len += name_len + 1;
+        }
+    }
+
+    if (total_len == 0) return NULL;
+
+    result = (char*)malloc(total_len + 1);
+    if (!result) return NULL;
+
+    /* Second pass: copy names */
+    out = result;
+    for (env = environ; *env; env++) {
+        char* eq = strchr(*env, '=');
+        if (eq) {
+            name_len = eq - *env;
+            memcpy(out, *env, name_len);
+            out[name_len] = '\0';
+            out += name_len + 1;
+        }
+    }
+    *out = '\0'; /* Double null terminator */
+
+    return result;
+#endif
 }
+
+/* Case-insensitive string compare helper for POSIX */
+#if !defined(_WIN32) && !defined(EIF_WINDOWS)
+#include <strings.h>
+#define strnicmp_compat strncasecmp
+#else
+#define strnicmp_compat _strnicmp
+#endif
 
 /* Get names matching a prefix as null-separated string block.
  * Format: "NAME1\0NAME2\0\0" (double null at end)
  * Caller must free result with free().
  * Returns NULL on failure or no matches. */
 char* se_get_names_with_prefix(const char* prefix) {
+#if defined(_WIN32) || defined(EIF_WINDOWS)
     char* env_block;
     char* result;
     char* p;
@@ -133,4 +191,51 @@ char* se_get_names_with_prefix(const char* prefix) {
 
     FreeEnvironmentStringsA(env_block);
     return result;
+#else
+    /* POSIX implementation using environ */
+    char** env;
+    char* result;
+    char* out;
+    size_t total_len = 0;
+    size_t name_len;
+    size_t prefix_len;
+
+    if (!prefix) return NULL;
+    prefix_len = strlen(prefix);
+
+    if (!environ) return NULL;
+
+    /* First pass: calculate total length needed */
+    for (env = environ; *env; env++) {
+        if (strncasecmp(*env, prefix, prefix_len) == 0) {
+            char* eq = strchr(*env, '=');
+            if (eq) {
+                name_len = eq - *env;
+                total_len += name_len + 1;
+            }
+        }
+    }
+
+    if (total_len == 0) return NULL;
+
+    result = (char*)malloc(total_len + 1);
+    if (!result) return NULL;
+
+    /* Second pass: copy matching names */
+    out = result;
+    for (env = environ; *env; env++) {
+        if (strncasecmp(*env, prefix, prefix_len) == 0) {
+            char* eq = strchr(*env, '=');
+            if (eq) {
+                name_len = eq - *env;
+                memcpy(out, *env, name_len);
+                out[name_len] = '\0';
+                out += name_len + 1;
+            }
+        }
+    }
+    *out = '\0';
+
+    return result;
+#endif
 }
